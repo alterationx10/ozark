@@ -3,12 +3,6 @@ package com.alterationx10.ozark
 import zio.*
 import sttp.tapir.*
 import sttp.tapir.server.*
-import scala.annotation.StaticAnnotation
-import scala.compiletime.*
-import scala.deriving.Mirror
-import scala.deriving.Mirror.ProductOf
-import scala.reflect.ClassTag
-import scala.quoted.*
 
 case class AController() derives Controller {
 
@@ -24,17 +18,19 @@ case class AController() derives Controller {
   } yield ()
 }
 
-object OzarkServer extends ZIOAppDefault {
+trait OzarkServer extends ZIOAppDefault {
 
-  val program: ZIO[AController, Throwable, ExitCode] = for {
+  final val program: ZIO[AController, Throwable, ExitCode] = for {
     aController <- ZIO.service[AController]
     _           <- aController.someMethod
   } yield ExitCode.success
 
-  override def run: ZIO[Environment, Throwable, ExitCode] =
+  override final def run: ZIO[Environment, Throwable, ExitCode] =
     program
       .provide(
         AController.derived$Controller.autoLayer
       )
 
 }
+
+object Example extends OzarkServer {}

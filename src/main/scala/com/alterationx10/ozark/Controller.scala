@@ -9,7 +9,8 @@ import scala.deriving.*
 import scala.quoted.*
 
 trait Controller[A] {
-  def autoLayer[R, E, B >: A]: ZLayer[R, E, B]
+  // TODO replace R, E with derived types
+  def autoLayer[R, E]: ZLayer[R, E, A]
   extension (a: A) {
     def routes: List[ServerEndpoint[Any, Task]]
   }
@@ -44,6 +45,7 @@ object Controller {
     fieldsT.foreach { case (f, t) =>
       println(s"*\t$f: ${t.typeSymbol.name}")
     }
+    // TODO this is only filtering on ServerEndpoint; needs to also filter on ServerEndpoint type arguments
     val desired       = TypeRepr.of[ServerEndpoint[_, _]]
     val filtered      = fieldsT.filter {
       case (f, t) if (t.typeSymbol.name == desired.typeSymbol.name) => true
@@ -79,13 +81,13 @@ object Controller {
             .foldLeft(init)((l, z) => l.flatMap(_l => z.map(_z => _l :+ _z)))
 
         new Controller[A] {
-          override def autoLayer[R, E, B >: A]: ZLayer[R, E, B] = ZLayer {
+          override def autoLayer[R, E]: ZLayer[R, E, A] = ZLayer {
             flattened
               .asInstanceOf[ZIO[R, E, List[Any]]]
               .map(deps => p.fromProduct(Tuple.fromArray(deps.toArray)))
           }
           extension (a: A) {
-            override def routes: List[ServerEndpoint[Any, Task]]  =
+            override def routes: List[ServerEndpoint[Any, Task]] =
               gatherRoutes[A](a)
           }
         }
