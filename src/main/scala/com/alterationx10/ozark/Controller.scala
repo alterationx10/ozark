@@ -9,14 +9,29 @@ import scala.deriving.*
 import scala.quoted.*
 
 trait Controller[A] {
-  // TODO replace R, E with derived types
-  def autoLayer[R, E]: ZLayer[R, E, A]
+
+  def autoLayer(using
+      p: Mirror.ProductOf[A]
+  ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A]
+
   extension (a: A) {
     def routes: List[ServerEndpoint[Any, Task]]
   }
+
 }
 
 object Controller {
+
+  def autoLayer[A](using c: Controller[A])(using
+      p: Mirror.ProductOf[A]
+  ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A] =
+    c.autoLayer(using p)
+
+  type R[Args] =
+    Args match {
+      case h *: EmptyTuple => h
+      case h *: tail       => h & R[tail]
+    }
 
   private inline def summonServices[T <: Tuple]: List[URIO[?, ?]] = {
     inline erasedValue[T] match {
@@ -81,15 +96,22 @@ object Controller {
             .foldLeft(init)((l, z) => l.flatMap(_l => z.map(_z => _l :+ _z)))
 
         new Controller[A] {
-          override def autoLayer[R, E]: ZLayer[R, E, A] = ZLayer {
+
+          override def autoLayer(using
+              p: Mirror.ProductOf[A]
+          ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A] = ZLayer {
             flattened
-              .asInstanceOf[ZIO[R, E, List[Any]]]
+              .asInstanceOf[
+                ZIO[Controller.R[p.MirroredElemTypes], Nothing, List[Any]]
+              ]
               .map(deps => p.fromProduct(Tuple.fromArray(deps.toArray)))
           }
+
           extension (a: A) {
             override def routes: List[ServerEndpoint[Any, Task]] =
               gatherRoutes[A](a)
           }
+
         }
       }
     }

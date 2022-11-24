@@ -4,7 +4,8 @@ import zio.*
 import sttp.tapir.*
 import sttp.tapir.server.*
 
-case class AController() derives Controller {
+case class AController(thing: String, stuff: Int) derives Controller {
+
 
   val somethingElse: String = "not a route"
 
@@ -28,7 +29,9 @@ trait OzarkServer extends ZIOAppDefault {
   override final def run: ZIO[Environment, Throwable, ExitCode] =
     program
       .provide(
-        AController.derived$Controller.autoLayer
+        ZLayer.succeed("42"),
+        ZLayer.succeed(42),
+        Controller.autoLayer[AController]
       )
 
 }
