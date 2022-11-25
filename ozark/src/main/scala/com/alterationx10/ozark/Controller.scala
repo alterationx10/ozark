@@ -8,15 +8,18 @@ import scala.compiletime.*
 import scala.deriving.*
 import scala.quoted.*
 
-trait Controller[A] {
+trait Controller[A: Tag] {
+
+  extension (a: A) {
+    def routes: List[ServerEndpoint[Any, Task]]
+  }
 
   def autoLayer(using
       p: Mirror.ProductOf[A]
   ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A]
 
-  extension (a: A) {
-    def routes: List[ServerEndpoint[Any, Task]]
-  }
+  def routesZIO: ZIO[A, Nothing, List[ServerEndpoint[Any, Task]]] =
+    ZIO.service[A].map(a => a.routes)
 
 }
 
@@ -29,6 +32,7 @@ object Controller {
 
   type R[Args] =
     Args match {
+      case EmptyTuple      => Any
       case h *: EmptyTuple => h
       case h *: tail       => h & R[tail]
     }
