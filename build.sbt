@@ -15,4 +15,7 @@ lazy val ozark = (project in file("ozark"))
   )
 
 lazy val example = (project in file("example"))
+  .settings(
+    fork := true
+  )
   .dependsOn(ozark)
