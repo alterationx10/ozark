@@ -8,44 +8,24 @@ import scala.compiletime.*
 import scala.deriving.*
 import scala.quoted.*
 
-trait Controller[A: Tag] {
+trait Controller[A] {
 
   extension (a: A) {
     def routes: List[ServerEndpoint[Any, Task]]
   }
 
-  def autoLayer(using
-      p: Mirror.ProductOf[A]
-  ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A]
+  val routesZIO: ZIO[A, Nothing, List[ServerEndpoint[Any, Task]]]
 
-  def routesZIO: ZIO[A, Nothing, List[ServerEndpoint[Any, Task]]] =
-    ZIO.service[A].map(a => a.routes)
+  inline def layerZIO(using p: Mirror.ProductOf[A])(using
+      l: AutoLayer[A]
+  ): ZLayer[MacroHelpers.R[p.MirroredElemTypes], Nothing, A] =
+    l.layer
 
 }
 
 object Controller {
 
-  def autoLayer[A](using c: Controller[A])(using
-      p: Mirror.ProductOf[A]
-  ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A] =
-    c.autoLayer(using p)
-
-  type R[Args] =
-    Args match {
-      case EmptyTuple      => Any
-      case h *: EmptyTuple => h
-      case h *: tail       => h & R[tail]
-    }
-
-  private inline def summonServices[T <: Tuple]: List[URIO[?, ?]] = {
-    inline erasedValue[T] match {
-      case _: EmptyTuple => Nil
-      case _: (t *: ts)  =>
-        ZIO.service[t] :: summonServices[ts]
-    }
-  }
-
-  private inline def gatherRoutes[A](a: A): List[ServerEndpoint[Any, Task]] = ${
+  inline def gatherRoutes[A](a: A): List[ServerEndpoint[Any, Task]] = ${
     gatherRoutesImpl[A]('a)
   }
 
@@ -84,7 +64,7 @@ object Controller {
   inline given derived[A <: Product](using m: Mirror.Of[A]): Controller[A] = {
 
     lazy val constructorServices: List[URIO[?, ?]] =
-      summonServices[m.MirroredElemTypes]
+      MacroHelpers.summonServices[m.MirroredElemTypes]
 
     inline m match {
       case _: Mirror.SumOf[A]     =>
@@ -101,20 +81,13 @@ object Controller {
 
         new Controller[A] {
 
-          override def autoLayer(using
-              p: Mirror.ProductOf[A]
-          ): ZLayer[Controller.R[p.MirroredElemTypes], Nothing, A] = ZLayer {
-            flattened
-              .asInstanceOf[
-                ZIO[Controller.R[p.MirroredElemTypes], Nothing, List[Any]]
-              ]
-              .map(deps => p.fromProduct(Tuple.fromArray(deps.toArray)))
+          extension (a: A) {
+            def routes: List[ServerEndpoint[Any, Task]] = gatherRoutes[A](a)
           }
 
-          extension (a: A) {
-            override def routes: List[ServerEndpoint[Any, Task]] =
-              gatherRoutes[A](a)
-          }
+          override val routesZIO
+              : ZIO[A, Nothing, List[ServerEndpoint[Any, Task]]] =
+            ZIO.service[A].map(a => a.routes)
 
         }
       }

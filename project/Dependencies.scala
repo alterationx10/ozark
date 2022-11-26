@@ -3,11 +3,11 @@ import sbt._
 object Dependencies {
 
   object Versions {
-    val zio = "2.0.2"
+    val zio = "2.0.3"
     val zioConfig = "3.0.1"
     val zioJson = "0.3.0-RC10"
     val zioLogging = "2.0.1"
-    val tapir = "1.2.1"
+    val tapir = "1.2.3"
     val sttp = "3.7.2"
   }
 

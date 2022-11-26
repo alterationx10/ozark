@@ -7,9 +7,10 @@ import sttp.tapir.server.*
 import scala.compiletime.*
 import scala.deriving.*
 import scala.quoted.*
+import zio.http.Server
 
 @Routed
-case class OtherController() derives Controller {
+case class OtherController() derives Controller, AutoLayer {
 
   val healthRoute: ServerEndpoint[Any, Task] =
     endpoint
@@ -19,39 +20,35 @@ case class OtherController() derives Controller {
 }
 
 @Routed
-case class AController(thing: String, stuff: Int) derives Controller {
+case class AController(thing: String) derives Controller, AutoLayer {
 
   val somethingElse: String = "not a route"
 
   val healthRoute: ServerEndpoint[Any, Task] =
     endpoint
       .in("health")
-      .serverLogicSuccess(_ => ZIO.unit)
-
-  def someMethod: Task[Unit] = for {
-    _ <- Console.printLine(s"I have ${this.routes.length} routes")
-  } yield ()
-}
-
-trait OzarkServer extends ZIOAppDefault {
-
-  val stuff = Routed.gatherControllers("com.alterationx10.ozark").length
-
-  private final val program = for {
-    // routes      <- ZIO.foreach(Routed.gatherControllers("server.controllers"))(_.routesZIO)
-    aController <- ZIO.service[AController]
-    _           <- aController.someMethod
-    _           <- Console.printLine(s"Aggregated ${stuff} controllers")
-  } yield ExitCode.success
-
-  override final def run: ZIO[Environment, Throwable, ExitCode] =
-    program
-      .provide(
-        ZLayer.succeed("42"),
-        ZLayer.succeed(42),
-        Controller.autoLayer[AController]
-      )
+      .out(stringBody)
+      .serverLogicSuccess(_ => ZIO.succeed(s"$thing"))
 
 }
 
-object Example extends OzarkServer
+case class AppRouter(a: AController) derives Router, AutoLayer
+
+trait OzarkServer[R] extends ZIOAppDefault {}
+
+object Example extends OzarkServer[AppRouter] {
+
+  val program: ZIO[AController & Server, Nothing, ExitCode] =
+    summon[Router[AppRouter]].program
+
+  val deps: ZLayer[Any, Throwable, AController & Server] =
+    ZLayer.make[AController & Server](
+      Server.default,
+      AutoLayer.layer[AController],
+      ZLayer.succeed("hello macro")
+    )
+
+  override def run: ZIO[Any & (ZIOAppArgs & Scope), Any, Any] =
+    program.provide(deps)
+
+}
