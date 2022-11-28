@@ -8,12 +8,21 @@ import zio.*
 
 object MacroHelpers {
 
-  type R[Args] =
-    Args match {
+  type IType[Tple] =
+    Tple match {
       case EmptyTuple      => Any
       case h *: EmptyTuple => h
-      case h *: tail       => h & R[tail]
+      case h *: tail       => h & IType[tail]
     }
+
+  type UType[Tple] =
+    Tple match {
+      case EmptyTuple      => Any
+      case h *: EmptyTuple => h
+      case h *: tail       => h | UType[tail]
+    }
+
+  type R[Args] = IType[Args]
 
   inline def summonServices[T <: Tuple]: List[URIO[?, ?]] = {
     inline erasedValue[T] match {
