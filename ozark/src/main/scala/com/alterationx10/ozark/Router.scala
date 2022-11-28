@@ -14,7 +14,7 @@ trait Router[R] {
 
   inline def program(using
       p: Mirror.ProductOf[R]
-  ): ZIO[MacroHelpers.R[p.MirroredElemTypes] & Server, Nothing, ExitCode] = {
+  ): ZIO[MacroHelpers.R[p.MirroredElemTypes] & Server, Throwable, ExitCode] = {
 
     val app = for {
       routes <- ZIO
