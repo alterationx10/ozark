@@ -5,7 +5,7 @@ import scala.deriving.*
 import scala.quoted.*
 import zio.*
 import com.alterationx10.ozark.Controller
-import com.alterationx10.ozark.MacroHelpers.R
+import com.alterationx10.ozark.MacroHelpers.*
 import sttp.tapir.server.ServerEndpoint
 import sttp.tapir.server.ziohttp.ZioHttpInterpreter
 import zio.http.Server
@@ -14,12 +14,12 @@ trait Router[R] {
 
   inline def program(using
       p: Mirror.ProductOf[R]
-  ): ZIO[MacroHelpers.R[p.MirroredElemTypes] & Server, Throwable, ExitCode] = {
+  ): ZIO[IType[p.MirroredElemTypes] & Server, Throwable, ExitCode] = {
 
     val app = for {
       routes <- ZIO
                   .foreach(Router.summonRoutes[p.MirroredElemTypes])(
-                    _.asInstanceOf[ZIO[MacroHelpers.R[
+                    _.asInstanceOf[ZIO[IType[
                       p.MirroredElemTypes
                     ], Nothing, List[ServerEndpoint[Any, Task]]]]
                   )

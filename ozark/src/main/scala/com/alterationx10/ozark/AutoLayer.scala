@@ -3,6 +3,7 @@ package com.alterationx10.ozark
 import scala.compiletime.*
 import scala.deriving.*
 import scala.quoted.*
+import MacroHelpers.*
 
 import zio.*
 
@@ -10,7 +11,7 @@ trait AutoLayer[A] {
 
   def layer(using
       p: Mirror.ProductOf[A]
-  ): ZLayer[MacroHelpers.R[p.MirroredElemTypes], Nothing, A]
+  ): ZLayer[IType[p.MirroredElemTypes], Nothing, A]
 
 }
 
@@ -42,10 +43,10 @@ object AutoLayer {
 
           override def layer(using
               p: Mirror.ProductOf[A]
-          ): ZLayer[MacroHelpers.R[p.MirroredElemTypes], Nothing, A] = ZLayer {
+          ): ZLayer[IType[p.MirroredElemTypes], Nothing, A] = ZLayer {
             flattened
               .asInstanceOf[
-                ZIO[MacroHelpers.R[p.MirroredElemTypes], Nothing, List[Any]]
+                ZIO[IType[p.MirroredElemTypes], Nothing, List[Any]]
               ]
               .map(deps => p.fromProduct(Tuple.fromArray(deps.toArray)))
           }

@@ -7,6 +7,7 @@ import sttp.tapir.server.*
 import scala.compiletime.*
 import scala.deriving.*
 import scala.quoted.*
+import MacroHelpers.*
 
 trait Controller[A] {
 
@@ -18,7 +19,7 @@ trait Controller[A] {
 
   inline def layerZIO(using p: Mirror.ProductOf[A])(using
       l: AutoLayer[A]
-  ): ZLayer[MacroHelpers.R[p.MirroredElemTypes], Nothing, A] =
+  ): ZLayer[IType[p.MirroredElemTypes], Nothing, A] =
     l.layer
 
 }
